@@ -22,18 +22,12 @@ interface UseFileUploadOptions {
 const DEFAULT_MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
 const DEFAULT_MAX_FILES = 10
 
-const ACCEPTED_FILE_TYPES = [
-  // Code files
-  '.js', '.ts', '.tsx', '.jsx', '.py', '.java', '.cpp', '.c', '.cs',
-  '.php', '.rb', '.go', '.rs', '.swift', '.kt', '.scala', '.sh', '.bash',
-  // Config files
-  '.json', '.xml', '.yaml', '.yml', '.env', '.config', '.toml', '.ini',
-  // Docs
-  '.md', '.txt', '.rst', '.adoc', '.pdf',
-  // Web
-  '.html', '.css', '.scss', '.sass', '.less',
-  // Other
-  '.sql', '.graphql', '.proto', '.xls', '.xlsx', '.csv'
+const ALLOWED_EXTENSIONS = [
+  'js', 'ts', 'tsx', 'jsx', 'py', 'java', 'cpp', 'c', 'cs',
+  'php', 'rb', 'go', 'rs', 'swift', 'kt', 'scala', 'sh', 'bash',
+  'json', 'xml', 'yaml', 'yml', 'md', 'txt', 'html', 'css', 'scss',
+  'sql', 'graphql', 'proto',
+  'pdf', 'xls', 'xlsx', 'csv'
 ]
 
 const LANGUAGE_MAP: Record<string, string> = {
@@ -77,7 +71,7 @@ function detectLanguage(filename: string): string {
   return LANGUAGE_MAP[ext] || 'Unknown'
 }
 
-function isBinaryLikeExtension(ext: string) {
+function isBinaryExtension(ext: string) {
   return ['pdf', 'xls', 'xlsx'].includes(ext)
 }
 
@@ -85,7 +79,7 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
   const {
     maxFileSize = DEFAULT_MAX_FILE_SIZE,
     maxFiles = DEFAULT_MAX_FILES,
-    acceptedFileTypes = ACCEPTED_FILE_TYPES,
+    acceptedFileTypes = ALLOWED_EXTENSIONS,
     onError
   } = options
 
@@ -98,9 +92,9 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
     }
 
     // Check file type
-    const fileName = file.name.toLowerCase()
+    const fileExt = getFileExtension(file.name).toLowerCase()
     const hasValidExtension = acceptedFileTypes.some(ext =>
-      fileName.endsWith(ext.toLowerCase())
+      fileExt === ext.toLowerCase()
     )
 
     if (!hasValidExtension) {
@@ -111,14 +105,13 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
   }, [maxFileSize, acceptedFileTypes])
 
   const readFileContent = useCallback(async (file: File): Promise<string | undefined> => {
-    const ext = getFileExtension(file.name).toLowerCase()
-
-    if (isBinaryLikeExtension(ext)) {
-      // Don’t attempt to read binary formats as plain text
-      return undefined
+    const ext = file.name.split('.').pop()?.toLowerCase() ?? ''
+    let content: string | undefined = undefined
+    if (!isBinaryExtension(ext)) {
+      content = await file.text()
     }
 
-    return await file.text()
+    return content
   }, [])
 
   const addFiles = useCallback(async (newFiles: File[]) => {
@@ -188,7 +181,7 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
   }, [])
 
   const getAcceptString = useCallback(() => {
-    return acceptedFileTypes.join(',')
+    return acceptedFileTypes.map(ext => `.${ext}`).join(',')
   }, [acceptedFileTypes])
 
   return {

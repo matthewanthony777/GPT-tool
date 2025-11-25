@@ -90,6 +90,15 @@ export function ChatMessages({
     ...section.assistantMessages
   ])
 
+  useEffect(() => {
+    if (!scrollContainerRef?.current) return
+
+    scrollContainerRef.current.scrollTo({
+      top: scrollContainerRef.current.scrollHeight,
+      behavior: 'smooth'
+    })
+  }, [allMessages, scrollContainerRef])
+
   const lastUserIndex =
     allMessages.length -
     1 -
@@ -124,8 +133,8 @@ export function ChatMessages({
       role="list"
       aria-roledescription="chat messages"
       className={cn(
-        'relative size-full pt-14',
-        sections.length > 0 ? 'flex-1 overflow-y-auto' : ''
+        'relative flex-1 overflow-y-auto pt-14',
+        sections.length > 0 ? 'size-full' : ''
       )}
     >
       <div className="relative mx-auto w-full max-w-3xl px-4">
