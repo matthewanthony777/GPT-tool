@@ -7,9 +7,11 @@ import { ChatRequestOptions } from 'ai'
 import { Message } from 'ai/react'
 import { toast } from 'sonner'
 
+import { useFileUpload } from '@/lib/hooks/useFileUpload'
 import { Model } from '@/lib/types/models'
 import { cn } from '@/lib/utils'
 
+import { FileDropZone } from './file-upload/FileDropZone'
 import { ChatMessages } from './chat-messages'
 import { ChatPanel } from './chat-panel'
 
@@ -33,6 +35,15 @@ export function Chat({
 }) {
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const [isAtBottom, setIsAtBottom] = useState(true)
+
+  // File upload hook
+  const fileUpload = useFileUpload({
+    maxFileSize: 10 * 1024 * 1024, // 10MB
+    maxFiles: 10,
+    onError: (error) => {
+      toast.error(error)
+    }
+  })
 
   const {
     messages,
@@ -211,38 +222,48 @@ export function Chat({
   }
 
   return (
-    <div
-      className={cn(
-        'relative flex h-full min-w-0 flex-1 flex-col',
-        messages.length === 0 ? 'items-center justify-center' : ''
-      )}
-      data-testid="full-chat"
+    <FileDropZone
+      onFilesDropped={fileUpload.addFiles}
+      acceptedFileTypes={[
+        '.js', '.ts', '.tsx', '.jsx', '.py', '.java', '.cpp', '.c', '.cs',
+        '.php', '.rb', '.go', '.rs', '.swift', '.kt', '.json', '.md', '.txt',
+        '.html', '.css', '.scss', '.yaml', '.yml'
+      ]}
     >
-      <ChatMessages
-        sections={sections}
-        data={data}
-        onQuerySelect={onQuerySelect}
-        isLoading={isLoading}
-        chatId={id}
-        addToolResult={addToolResult}
-        scrollContainerRef={scrollContainerRef}
-        onUpdateMessage={handleUpdateAndReloadMessage}
-        reload={handleReloadFrom}
-      />
-      <ChatPanel
-        input={input}
-        handleInputChange={handleInputChange}
-        handleSubmit={onSubmit}
-        isLoading={isLoading}
-        messages={messages}
-        setMessages={setMessages}
-        stop={stop}
-        query={query}
-        append={append}
-        models={models}
-        showScrollToBottomButton={!isAtBottom}
-        scrollContainerRef={scrollContainerRef}
-      />
-    </div>
+      <div
+        className={cn(
+          'relative flex h-full min-w-0 flex-1 flex-col',
+          messages.length === 0 ? 'items-center justify-center' : ''
+        )}
+        data-testid="full-chat"
+      >
+        <ChatMessages
+          sections={sections}
+          data={data}
+          onQuerySelect={onQuerySelect}
+          isLoading={isLoading}
+          chatId={id}
+          addToolResult={addToolResult}
+          scrollContainerRef={scrollContainerRef}
+          onUpdateMessage={handleUpdateAndReloadMessage}
+          reload={handleReloadFrom}
+        />
+        <ChatPanel
+          input={input}
+          handleInputChange={handleInputChange}
+          handleSubmit={onSubmit}
+          isLoading={isLoading}
+          messages={messages}
+          setMessages={setMessages}
+          stop={stop}
+          query={query}
+          append={append}
+          models={models}
+          showScrollToBottomButton={!isAtBottom}
+          scrollContainerRef={scrollContainerRef}
+          fileUpload={fileUpload}
+        />
+      </div>
+    </FileDropZone>
   )
 }

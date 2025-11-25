@@ -6,11 +6,15 @@ import { useRouter } from 'next/navigation'
 
 import { Message } from 'ai'
 import { ArrowUp, ChevronDown, MessageCirclePlus, Square } from 'lucide-react'
+import { toast } from 'sonner'
 
+import { useFileUpload } from '@/lib/hooks/useFileUpload'
 import { Model } from '@/lib/types/models'
 import { cn } from '@/lib/utils'
 
 import { useArtifact } from './artifact/artifact-context'
+import { FilePreview } from './file-upload/FilePreview'
+import { FileUploadButton } from './file-upload/FileUploadButton'
 import { Button } from './ui/button'
 import { IconLogo } from './ui/icons'
 import { EmptyScreen } from './empty-screen'
@@ -32,6 +36,8 @@ interface ChatPanelProps {
   showScrollToBottomButton: boolean
   /** Reference to the scroll container */
   scrollContainerRef: React.RefObject<HTMLDivElement>
+  /** File upload hook instance */
+  fileUpload: ReturnType<typeof useFileUpload>
 }
 
 export function ChatPanel({
@@ -46,7 +52,8 @@ export function ChatPanel({
   append,
   models,
   showScrollToBottomButton,
-  scrollContainerRef
+  scrollContainerRef,
+  fileUpload
 }: ChatPanelProps) {
   const [showEmptyScreen, setShowEmptyScreen] = useState(false)
   const router = useRouter()
@@ -55,6 +62,16 @@ export function ChatPanel({
   const [isComposing, setIsComposing] = useState(false) // Composition state
   const [enterDisabled, setEnterDisabled] = useState(false) // Disable Enter after composition ends
   const { close: closeArtifact } = useArtifact()
+
+  // Destructure fileUpload prop
+  const {
+    files,
+    addFiles,
+    removeFile,
+    clearFiles,
+    getAcceptString,
+    completedFiles
+  } = fileUpload
 
   const handleCompositionStart = () => setIsComposing(true)
 
@@ -69,7 +86,47 @@ export function ChatPanel({
   const handleNewChat = () => {
     setMessages([])
     closeArtifact()
+    clearFiles()
     router.push('/')
+  }
+
+  const handleFilesSelected = async (selectedFiles: File[]) => {
+    await addFiles(selectedFiles)
+  }
+
+  const handleFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+
+    // If there are completed files, append their content to the message
+    if (completedFiles.length > 0) {
+      const filesContext = completedFiles.map(file =>
+        `File: ${file.name}\n\`\`\`${file.language?.toLowerCase() || ''}\n${file.content}\n\`\`\``
+      ).join('\n\n')
+
+      // Create a message that includes both the user input and file contents
+      const messageWithFiles = input.trim()
+        ? `${input}\n\n${filesContext}`
+        : filesContext
+
+      // Update the input temporarily for submission
+      const syntheticEvent = {
+        ...e,
+        currentTarget: {
+          ...e.currentTarget,
+          elements: {
+            ...e.currentTarget.elements,
+            input: { value: messageWithFiles }
+          }
+        }
+      } as React.FormEvent<HTMLFormElement>
+
+      handleSubmit(syntheticEvent)
+
+      // Clear files after submission
+      clearFiles()
+    } else {
+      handleSubmit(e)
+    }
   }
 
   const isToolInvocationInProgress = () => {
@@ -126,7 +183,7 @@ export function ChatPanel({
         </div>
       )}
       <form
-        onSubmit={handleSubmit}
+        onSubmit={handleFormSubmit}
         className={cn('max-w-3xl w-full mx-auto relative')}
       >
         {/* Scroll to bottom button - only shown when showScrollToBottomButton is true */}
@@ -141,6 +198,13 @@ export function ChatPanel({
           >
             <ChevronDown size={16} />
           </Button>
+        )}
+
+        {/* File Preview - shown above input when files are uploaded */}
+        {files.length > 0 && (
+          <div className="mb-2">
+            <FilePreview files={files} onRemove={removeFile} />
+          </div>
         )}
 
         <div className="relative flex flex-col w-full gap-2 bg-muted rounded-3xl border border-input">
@@ -184,6 +248,11 @@ export function ChatPanel({
           {/* Bottom menu area */}
           <div className="flex items-center justify-between p-3">
             <div className="flex items-center gap-2">
+              <FileUploadButton
+                onFilesSelected={handleFilesSelected}
+                acceptedFileTypes={getAcceptString()}
+                disabled={isLoading || isToolInvocationInProgress()}
+              />
               <ModelSelector models={models || []} />
               <SearchModeToggle />
             </div>
@@ -206,7 +275,7 @@ export function ChatPanel({
                 variant={'outline'}
                 className={cn(isLoading && 'animate-pulse', 'rounded-full')}
                 disabled={
-                  (input.length === 0 && !isLoading) ||
+                  (input.length === 0 && completedFiles.length === 0 && !isLoading) ||
                   isToolInvocationInProgress()
                 }
                 onClick={isLoading ? stop : undefined}
