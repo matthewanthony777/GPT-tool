@@ -105,19 +105,17 @@ export function ChatPanel({
   const handleFormSubmit = (e?: any) => {
     if (e?.preventDefault) e.preventDefault()
 
-    const messageWithFiles =
-      completedFiles
-        .map(file =>
-          file.content
-            ? `File: ${file.name}\n\`\`\`${file.language || ''}\n${file.content}\n\`\`\``
-            : `Attached file: ${file.name} (${file.type})`
-        )
-        .join('\n\n')
+    const filesPayload = completedFiles.map(file => ({
+      name: file.name,
+      type: file.type,
+      binary: file.binary,
+      content: file.content
+    }))
 
-    const content = [input, messageWithFiles].filter(Boolean).join('\n\n')
-    if (!content.trim()) return
+    const userMsg = input.trim() || (filesPayload.length ? 'Attached files' : '')
+    if (!userMsg && filesPayload.length === 0) return
 
-    append({ role: 'user', content })
+    append({ role: 'user', content: userMsg, files: filesPayload } as any)
     setInput('')
     clearFiles?.()
   }

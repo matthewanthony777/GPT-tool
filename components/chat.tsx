@@ -241,6 +241,7 @@ export function Chat({
             chatId={id}
             addToolResult={addToolResult}
             scrollContainerRef={scrollContainerRef}
+            isAtBottom={isAtBottom}
             onUpdateMessage={handleUpdateAndReloadMessage}
             reload={handleReloadFrom}
           />
