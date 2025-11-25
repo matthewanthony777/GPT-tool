@@ -49,7 +49,6 @@ export function Chat({
     messages,
     input,
     handleInputChange,
-    handleSubmit,
     status,
     setMessages,
     stop,
@@ -57,7 +56,8 @@ export function Chat({
     data,
     setData,
     addToolResult,
-    reload
+    reload,
+    setInput
   } = useChat({
     initialMessages: savedMessages,
     id: id, // Use unique chat ID for isolated streaming
@@ -215,12 +215,6 @@ export function Chat({
     return await reload(options)
   }
 
-  const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
-    setData(undefined)
-    handleSubmit(e)
-  }
-
   return (
     <FileDropZone
       onFilesDropped={fileUpload.addFiles}
@@ -251,7 +245,6 @@ export function Chat({
         <ChatPanel
           input={input}
           handleInputChange={handleInputChange}
-          handleSubmit={onSubmit}
           isLoading={isLoading}
           messages={messages}
           setMessages={setMessages}
@@ -262,6 +255,7 @@ export function Chat({
           showScrollToBottomButton={!isAtBottom}
           scrollContainerRef={scrollContainerRef}
           fileUpload={fileUpload}
+          setInput={setInput}
         />
       </div>
     </FileDropZone>

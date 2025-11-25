@@ -24,7 +24,6 @@ import { SearchModeToggle } from './search-mode-toggle'
 interface ChatPanelProps {
   input: string
   handleInputChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void
-  handleSubmit: (e: React.FormEvent<HTMLFormElement>) => void
   isLoading: boolean
   messages: Message[]
   setMessages: (messages: Message[]) => void
@@ -38,12 +37,12 @@ interface ChatPanelProps {
   scrollContainerRef: React.RefObject<HTMLDivElement>
   /** File upload hook instance */
   fileUpload: ReturnType<typeof useFileUpload>
+  setInput: (value: string) => void
 }
 
 export function ChatPanel({
   input,
   handleInputChange,
-  handleSubmit,
   isLoading,
   messages,
   setMessages,
@@ -53,11 +52,13 @@ export function ChatPanel({
   models,
   showScrollToBottomButton,
   scrollContainerRef,
-  fileUpload
+  fileUpload,
+  setInput
 }: ChatPanelProps) {
   const [showEmptyScreen, setShowEmptyScreen] = useState(false)
   const router = useRouter()
   const inputRef = useRef<HTMLTextAreaElement>(null)
+  const formRef = useRef<HTMLFormElement | null>(null)
   const isFirstRender = useRef(true)
   const [isComposing, setIsComposing] = useState(false) // Composition state
   const [enterDisabled, setEnterDisabled] = useState(false) // Disable Enter after composition ends
@@ -94,39 +95,54 @@ export function ChatPanel({
     await addFiles(selectedFiles)
   }
 
-  const handleFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey && !isComposing && !enterDisabled) {
+      e.preventDefault()
+      formRef.current?.requestSubmit()
+    }
+  }
+
+  const handleFormSubmit = (
+    e?: React.FormEvent<HTMLFormElement> |
+      React.KeyboardEvent<HTMLTextAreaElement> |
+      React.MouseEvent<HTMLButtonElement>
+  ) => {
+    // Make this safe even if called without a real event
+    if (e && typeof (e as any).preventDefault === 'function') {
+      (e as any).preventDefault()
+    }
 
     // If there are completed files, append their content to the message
     if (completedFiles.length > 0) {
-      const filesContext = completedFiles.map(file =>
-        `File: ${file.name}\n\`\`\`${file.language?.toLowerCase() || ''}\n${file.content}\n\`\`\``
-      ).join('\n\n')
+      const filesContext = completedFiles
+        .map((file) =>
+          file.content
+            ? `File: ${file.name}\n\`\`\`${file.language?.toLowerCase() || ''}\n${file.content}\n\`\`\``
+            : `Attached file: ${file.name} (${file.type || 'binary'})`
+        )
+        .join('\n\n')
 
-      // Create a message that includes both the user input and file contents
-      const messageWithFiles = input.trim()
-        ? `${input}\n\n${filesContext}`
-        : filesContext
+      const message = [input, filesContext].filter(Boolean).join('\n\n')
 
-      // Update the input temporarily for submission
-      const syntheticEvent = {
-        ...e,
-        currentTarget: {
-          ...e.currentTarget,
-          elements: {
-            ...e.currentTarget.elements,
-            input: { value: messageWithFiles }
-          }
-        }
-      } as React.FormEvent<HTMLFormElement>
+      append({
+        role: 'user',
+        content: message,
+      })
 
-      handleSubmit(syntheticEvent)
-
-      // Clear files after submission
+      setInput('')
       clearFiles()
-    } else {
-      handleSubmit(e)
+      return
     }
+
+    // No files – normal text message
+    if (!input.trim()) return
+
+    append({
+      role: 'user',
+      content: input,
+    })
+
+    setInput('')
   }
 
   const isToolInvocationInProgress = () => {
@@ -183,6 +199,7 @@ export function ChatPanel({
         </div>
       )}
       <form
+        ref={formRef}
         onSubmit={handleFormSubmit}
         className={cn('max-w-3xl w-full mx-auto relative')}
       >
@@ -221,29 +238,14 @@ export function ChatPanel({
             value={input}
             disabled={isLoading || isToolInvocationInProgress()}
             className="resize-none w-full min-h-12 bg-transparent border-0 p-4 text-sm placeholder:text-muted-foreground focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
-            onChange={e => {
-              handleInputChange(e)
-              setShowEmptyScreen(e.target.value.length === 0)
-            }}
-            onKeyDown={e => {
-              if (
-                e.key === 'Enter' &&
-                !e.shiftKey &&
-                !isComposing &&
-                !enterDisabled
-              ) {
-                if (input.trim().length === 0) {
-                  e.preventDefault()
-                  return
-                }
-                e.preventDefault()
-                const textarea = e.target as HTMLTextAreaElement
-                textarea.form?.requestSubmit()
-              }
-            }}
-            onFocus={() => setShowEmptyScreen(true)}
-            onBlur={() => setShowEmptyScreen(false)}
-          />
+          onChange={e => {
+            handleInputChange(e)
+            setShowEmptyScreen(e.target.value.length === 0)
+          }}
+          onKeyDown={handleKeyDown}
+          onFocus={() => setShowEmptyScreen(true)}
+          onBlur={() => setShowEmptyScreen(false)}
+        />
 
           {/* Bottom menu area */}
           <div className="flex items-center justify-between p-3">
@@ -257,10 +259,10 @@ export function ChatPanel({
               <SearchModeToggle />
             </div>
             <div className="flex items-center gap-2">
-              {messages.length > 0 && (
-                <Button
-                  variant="outline"
-                  size="icon"
+            {messages.length > 0 && (
+              <Button
+                variant="outline"
+                size="icon"
                   onClick={handleNewChat}
                   className="shrink-0 rounded-full group"
                   type="button"
@@ -270,7 +272,7 @@ export function ChatPanel({
                 </Button>
               )}
               <Button
-                type={isLoading ? 'button' : 'submit'}
+                type="submit"
                 size={'icon'}
                 variant={'outline'}
                 className={cn(isLoading && 'animate-pulse', 'rounded-full')}
@@ -278,7 +280,7 @@ export function ChatPanel({
                   (input.length === 0 && completedFiles.length === 0 && !isLoading) ||
                   isToolInvocationInProgress()
                 }
-                onClick={isLoading ? stop : undefined}
+                onClick={isLoading ? (e) => { e.preventDefault(); stop() } : undefined}
               >
                 {isLoading ? <Square size={20} /> : <ArrowUp size={20} />}
               </Button>

@@ -1,4 +1,4 @@
-import { useCallback,useState } from 'react'
+import { useCallback, useState } from 'react'
 
 export interface UploadedFile {
   id: string
@@ -29,11 +29,11 @@ const ACCEPTED_FILE_TYPES = [
   // Config files
   '.json', '.xml', '.yaml', '.yml', '.env', '.config', '.toml', '.ini',
   // Docs
-  '.md', '.txt', '.rst', '.adoc',
+  '.md', '.txt', '.rst', '.adoc', '.pdf',
   // Web
   '.html', '.css', '.scss', '.sass', '.less',
   // Other
-  '.sql', '.graphql', '.proto'
+  '.sql', '.graphql', '.proto', '.xls', '.xlsx', '.csv'
 ]
 
 const LANGUAGE_MAP: Record<string, string> = {
@@ -77,6 +77,10 @@ function detectLanguage(filename: string): string {
   return LANGUAGE_MAP[ext] || 'Unknown'
 }
 
+function isBinaryLikeExtension(ext: string) {
+  return ['pdf', 'xls', 'xlsx'].includes(ext)
+}
+
 export function useFileUpload(options: UseFileUploadOptions = {}) {
   const {
     maxFileSize = DEFAULT_MAX_FILE_SIZE,
@@ -106,21 +110,15 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
     return null
   }, [maxFileSize, acceptedFileTypes])
 
-  const readFileContent = useCallback((file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader()
+  const readFileContent = useCallback(async (file: File): Promise<string | undefined> => {
+    const ext = getFileExtension(file.name).toLowerCase()
 
-      reader.onload = (e) => {
-        const content = e.target?.result as string
-        resolve(content)
-      }
+    if (isBinaryLikeExtension(ext)) {
+      // Don’t attempt to read binary formats as plain text
+      return undefined
+    }
 
-      reader.onerror = () => {
-        reject(new Error(`Failed to read file: ${file.name}`))
-      }
-
-      reader.readAsText(file)
-    })
+    return await file.text()
   }, [])
 
   const addFiles = useCallback(async (newFiles: File[]) => {
