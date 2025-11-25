@@ -7,6 +7,7 @@ export interface UploadedFile {
   size: number
   type: string
   content?: string
+  binary: boolean
   status: 'uploading' | 'completed' | 'error'
   error?: string
   language?: string
@@ -71,9 +72,36 @@ function detectLanguage(filename: string): string {
   return LANGUAGE_MAP[ext] || 'Unknown'
 }
 
-function isBinaryExtension(ext: string) {
-  return ['pdf', 'xls', 'xlsx'].includes(ext)
-}
+const toBase64 = (file: File) =>
+  new Promise<string>((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => {
+      const result = reader.result
+      if (typeof result === 'string') {
+        const base64Content = result.split(',')[1] || result
+        resolve(base64Content)
+      } else {
+        reject(new Error('Failed to read file as base64'))
+      }
+    }
+    reader.onerror = () => reject(reader.error)
+    reader.readAsDataURL(file)
+  })
+
+const readAsText = (file: File) =>
+  new Promise<string>((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => {
+      const result = reader.result
+      if (typeof result === 'string') {
+        resolve(result)
+      } else {
+        reject(new Error('Failed to read file as text'))
+      }
+    }
+    reader.onerror = () => reject(reader.error)
+    reader.readAsText(file)
+  })
 
 export function useFileUpload(options: UseFileUploadOptions = {}) {
   const {
@@ -104,16 +132,6 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
     return null
   }, [maxFileSize, acceptedFileTypes])
 
-  const readFileContent = useCallback(async (file: File): Promise<string | undefined> => {
-    const ext = file.name.split('.').pop()?.toLowerCase() ?? ''
-    let content: string | undefined = undefined
-    if (!isBinaryExtension(ext)) {
-      content = await file.text()
-    }
-
-    return content
-  }, [])
-
   const addFiles = useCallback(async (newFiles: File[]) => {
     // Check max files limit
     if (files.length + newFiles.length > maxFiles) {
@@ -138,6 +156,7 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
         name: file.name,
         size: file.size,
         type: file.type || 'application/octet-stream',
+        binary: !file.type?.startsWith('text/'),
         status: 'uploading',
         language: detectLanguage(file.name)
       }
@@ -151,11 +170,14 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
     // Read file contents
     for (const uploadedFile of validatedFiles) {
       try {
-        const content = await readFileContent(uploadedFile.file)
+        const isBinary = uploadedFile.binary
+        const content = isBinary
+          ? await toBase64(uploadedFile.file)
+          : await readAsText(uploadedFile.file)
 
         setFiles(prev => prev.map(f =>
           f.id === uploadedFile.id
-            ? { ...f, content, status: 'completed' as const }
+            ? { ...f, content, status: 'completed' as const, binary: isBinary }
             : f
         ))
       } catch (error) {
@@ -170,7 +192,7 @@ export function useFileUpload(options: UseFileUploadOptions = {}) {
         onError?.(errorMessage)
       }
     }
-  }, [files.length, maxFiles, validateFile, readFileContent, onError])
+    }, [files.length, maxFiles, validateFile, onError])
 
   const removeFile = useCallback((fileId: string) => {
     setFiles(prev => prev.filter(f => f.id !== fileId))

@@ -97,7 +97,7 @@ function FileItem({ file, onRemove }: FileItemProps) {
           <p className="text-xs text-destructive">{file.error}</p>
         )}
 
-        {isCompleted && file.content && (
+        {isCompleted && file.content && !file.binary && (
           <div className="mt-2 rounded border bg-background/50 p-2">
             <pre className="overflow-x-auto text-xs text-muted-foreground">
               <code>{truncateContent(file.content, 200)}</code>

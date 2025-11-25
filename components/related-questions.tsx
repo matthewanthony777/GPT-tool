@@ -46,12 +46,13 @@ export const RelatedQuestions: React.FC<RelatedQuestionsProps> = ({
     annotations.length - 1
   ] as RelatedQuestionsAnnotation
 
-  const relatedQuestions = lastRelatedQuestionsAnnotation?.data
-  if ((!relatedQuestions || !relatedQuestions.items) && !isLoading) {
+  const items = lastRelatedQuestionsAnnotation?.data?.items ?? []
+
+  if (items.length === 0 && !isLoading) {
     return null
   }
 
-  if (relatedQuestions.items.length === 0 && isLoading) {
+  if (items.length === 0 && isLoading) {
     return (
       <CollapsibleMessage
         role="assistant"
@@ -76,8 +77,8 @@ export const RelatedQuestions: React.FC<RelatedQuestionsProps> = ({
     >
       <Section title="Related" className="pt-0 pb-4">
         <div className="flex flex-col">
-          {Array.isArray(relatedQuestions.items) ? (
-            relatedQuestions.items
+          {Array.isArray(items) ? (
+            items
               ?.filter(item => item?.query !== '')
               .map((item, index) => (
                 <div className="flex items-start w-full" key={index}>

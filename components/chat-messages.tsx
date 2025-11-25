@@ -26,6 +26,7 @@ interface ChatMessagesProps {
   addToolResult?: (params: { toolCallId: string; result: any }) => void
   /** Ref for the scroll container */
   scrollContainerRef: React.RefObject<HTMLDivElement>
+  isAtBottom: boolean
   onUpdateMessage?: (messageId: string, newContent: string) => Promise<void>
   reload?: (
     messageId: string,
@@ -41,6 +42,7 @@ export function ChatMessages({
   chatId,
   addToolResult,
   scrollContainerRef,
+  isAtBottom,
   onUpdateMessage,
   reload
 }: ChatMessagesProps) {
@@ -92,19 +94,22 @@ export function ChatMessages({
   }, [data])
 
   useEffect(() => {
-    if (!scrollContainerRef?.current) return
+    if (!scrollContainerRef?.current || !isAtBottom) return
     scrollContainerRef.current.scrollTo({
-      top: scrollContainerRef.current.scrollHeight,
+      top: 999999,
       behavior: 'smooth'
     })
-  }, [messages])
+  }, [isAtBottom, messages, scrollContainerRef])
 
   if (!sections.length) return null
 
-  const lastUserIndex =
-    messages.length -
-    1 -
+  const lastUserReverseIndex =
     [...messages].reverse().findIndex(msg => msg.role === 'user')
+
+  const lastUserIndex =
+    lastUserReverseIndex === -1
+      ? -1
+      : messages.length - 1 - lastUserReverseIndex
 
   // Check if loading indicator should be shown
   const showLoading =

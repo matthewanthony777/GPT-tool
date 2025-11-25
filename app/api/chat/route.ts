@@ -24,6 +24,59 @@ export async function POST(req: Request) {
     const isSharePage = referer?.includes('/share/')
     const userId = await getCurrentUserId()
 
+    type FileAttachment = {
+      name: string
+      type: string
+      binary: boolean
+      content?: string
+    }
+
+    const lastUserReverseIndex =
+      [...messages].reverse().findIndex((msg: any) => msg.role === 'user')
+
+    const lastUserIndex =
+      lastUserReverseIndex === -1
+        ? -1
+        : messages.length - 1 - lastUserReverseIndex
+
+    const enrichedMessages = [...messages]
+
+    if (lastUserIndex >= 0) {
+      const lastUserMessage = messages[lastUserIndex]
+      const files = Array.isArray((lastUserMessage as any).files)
+        ? (lastUserMessage as any).files as FileAttachment[]
+        : []
+
+      let userContent = typeof lastUserMessage.content === 'string'
+        ? lastUserMessage.content
+        : ''
+      let systemNotes = ''
+
+      for (const file of files) {
+        if (file.binary) {
+          systemNotes += `\nBinary file attached: ${file.name} (${file.type})`
+        } else if (file.content) {
+          userContent += `\n\nAttached file (${file.name}):\n\`\`\`\n${file.content}\n\`\`\`\n`
+        }
+      }
+
+      enrichedMessages[lastUserIndex] = {
+        ...lastUserMessage,
+        content: userContent,
+        metadata: {
+          ...(lastUserMessage as any).metadata,
+          files
+        }
+      }
+
+      if (systemNotes.trim()) {
+        enrichedMessages.splice(lastUserIndex + 1, 0, {
+          role: 'system',
+          content: `${systemNotes}\nProvide a brief summary of binary attachments and confirm receipt.`
+        })
+      }
+    }
+
     if (isSharePage) {
       return new Response('Chat API is not available on share pages', {
         status: 403,
@@ -62,14 +115,14 @@ export async function POST(req: Request) {
 
     return supportsToolCalling
       ? createToolCallingStreamResponse({
-          messages,
+          messages: enrichedMessages,
           model: selectedModel,
           chatId,
           searchMode,
           userId
         })
       : createManualToolStreamResponse({
-          messages,
+          messages: enrichedMessages,
           model: selectedModel,
           chatId,
           searchMode,
