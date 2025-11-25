@@ -47,6 +47,15 @@ export function ChatMessages({
   const [openStates, setOpenStates] = useState<Record<string, boolean>>({})
   const manualToolCallId = 'manual-tool-call'
 
+  const messages = useMemo(
+    () =>
+      sections.flatMap(section => [
+        section.userMessage,
+        ...section.assistantMessages
+      ]),
+    [sections]
+  )
+
   useEffect(() => {
     // Open manual tool call when the last section is a user message
     if (sections.length > 0) {
@@ -82,27 +91,20 @@ export function ChatMessages({
     }
   }, [data])
 
-  if (!sections.length) return null
-
-  // Get all messages as a flattened array
-  const allMessages = sections.flatMap(section => [
-    section.userMessage,
-    ...section.assistantMessages
-  ])
-
   useEffect(() => {
     if (!scrollContainerRef?.current) return
-
     scrollContainerRef.current.scrollTo({
       top: scrollContainerRef.current.scrollHeight,
       behavior: 'smooth'
     })
-  }, [allMessages, scrollContainerRef])
+  }, [messages])
+
+  if (!sections.length) return null
 
   const lastUserIndex =
-    allMessages.length -
+    messages.length -
     1 -
-    [...allMessages].reverse().findIndex(msg => msg.role === 'user')
+    [...messages].reverse().findIndex(msg => msg.role === 'user')
 
   // Check if loading indicator should be shown
   const showLoading =
@@ -115,7 +117,7 @@ export function ChatMessages({
       return openStates[id] ?? true
     }
     const baseId = id.endsWith('-related') ? id.slice(0, -8) : id
-    const index = allMessages.findIndex(msg => msg.id === baseId)
+    const index = messages.findIndex(msg => msg.id === baseId)
     return openStates[id] ?? index >= lastUserIndex
   }
 

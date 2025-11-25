@@ -232,17 +232,19 @@ export function Chat({
         )}
         data-testid="full-chat"
       >
-        <ChatMessages
-          sections={sections}
-          data={data}
-          onQuerySelect={onQuerySelect}
-          isLoading={isLoading}
-          chatId={id}
-          addToolResult={addToolResult}
-          scrollContainerRef={scrollContainerRef}
-          onUpdateMessage={handleUpdateAndReloadMessage}
-          reload={handleReloadFrom}
-        />
+        <div className="relative flex-1 overflow-y-auto">
+          <ChatMessages
+            sections={sections}
+            data={data}
+            onQuerySelect={onQuerySelect}
+            isLoading={isLoading}
+            chatId={id}
+            addToolResult={addToolResult}
+            scrollContainerRef={scrollContainerRef}
+            onUpdateMessage={handleUpdateAndReloadMessage}
+            reload={handleReloadFrom}
+          />
+        </div>
         <ChatPanel
           input={input}
           handleInputChange={handleInputChange}
