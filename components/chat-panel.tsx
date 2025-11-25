@@ -102,48 +102,30 @@ export function ChatPanel({
     }
   }
 
-  const handleFormSubmit = (
-    e?: React.FormEvent<HTMLFormElement> |
-      React.KeyboardEvent<HTMLTextAreaElement> |
-      React.MouseEvent<HTMLButtonElement>
-  ) => {
-    // Make this safe even if called without a real event
-    if (e && typeof (e as any).preventDefault === 'function') {
-      (e as any).preventDefault()
-    }
+  const handleFormSubmit = (e?: any) => {
+    if (e?.preventDefault) e.preventDefault()
 
-    // If there are completed files, append their content to the message
-    if (completedFiles.length > 0) {
-      const filesContext = completedFiles
-        .map((file) =>
+    const messageWithFiles =
+      completedFiles
+        .map(file =>
           file.content
-            ? `File: ${file.name}\n\`\`\`${file.language?.toLowerCase() || ''}\n${file.content}\n\`\`\``
-            : `Attached file: ${file.name} (${file.type || 'binary'})`
+            ? `File: ${file.name}\n\`\`\`${file.language || ''}\n${file.content}\n\`\`\``
+            : `Attached file: ${file.name} (${file.type})`
         )
         .join('\n\n')
 
-      const message = [input, filesContext].filter(Boolean).join('\n\n')
+    const content = [input, messageWithFiles].filter(Boolean).join('\n\n')
+    if (!content.trim()) return
 
-      append({
-        role: 'user',
-        content: message,
-      })
-
-      setInput('')
-      clearFiles()
-      return
-    }
-
-    // No files – normal text message
-    if (!input.trim()) return
-
-    append({
-      role: 'user',
-      content: input,
-    })
-
+    append({ role: 'user', content })
     setInput('')
+    clearFiles?.()
   }
+
+  const shouldShowScrollButton =
+    showScrollToBottomButton &&
+    messages.length > 0 &&
+    !isLoading
 
   const isToolInvocationInProgress = () => {
     if (!messages.length) return false
@@ -204,7 +186,7 @@ export function ChatPanel({
         className={cn('max-w-3xl w-full mx-auto relative')}
       >
         {/* Scroll to bottom button - only shown when showScrollToBottomButton is true */}
-        {showScrollToBottomButton && messages.length > 0 && (
+        {shouldShowScrollButton && (
           <Button
             type="button"
             variant="outline"

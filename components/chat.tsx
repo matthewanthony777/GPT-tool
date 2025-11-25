@@ -220,8 +220,9 @@ export function Chat({
       onFilesDropped={fileUpload.addFiles}
       acceptedFileTypes={[
         '.js', '.ts', '.tsx', '.jsx', '.py', '.java', '.cpp', '.c', '.cs',
-        '.php', '.rb', '.go', '.rs', '.swift', '.kt', '.json', '.md', '.txt',
-        '.html', '.css', '.scss', '.yaml', '.yml'
+        '.php', '.rb', '.go', '.rs', '.swift', '.kt', '.scala', '.sh', '.bash',
+        '.json', '.xml', '.yaml', '.yml', '.md', '.txt', '.html', '.css', '.scss',
+        '.sql', '.graphql', '.proto', '.pdf', '.xls', '.xlsx', '.csv'
       ]}
     >
       <div
